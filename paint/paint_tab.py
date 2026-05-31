@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QColorDialog, QFileDialog,
     QLabel, QSpinBox, QMessageBox, QInputDialog,
-    QGroupBox, QGridLayout, QScrollArea,
+    QGroupBox, QScrollArea,
     QSizePolicy, QFrame
 )
 from PyQt5.QtGui import QPixmap, QKeySequence
@@ -127,6 +127,83 @@ class PaintTab(QWidget):
         shape_group.setLayout(shape_layout)
 
         # ==================================
+        # BARIS 4 — Animation Panel
+        # (hanya muncul saat ada selection)
+        # ==================================
+
+        self.anim_group = QGroupBox("✨ Animasi Seleksi")
+        self.anim_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #0078d7;
+                border-radius: 6px;
+                margin-top: 6px;
+                padding: 4px;
+                background: #f0f8ff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 4px;
+                color: #0078d7;
+            }
+        """)
+        anim_layout = QHBoxLayout()
+        anim_layout.setSpacing(8)
+
+        # Status label
+        self.anim_status = QLabel("Pilih area dengan Select, lalu pilih animasi:")
+        self.anim_status.setStyleSheet("color: #555;")
+        anim_layout.addWidget(self.anim_status)
+
+        anim_layout.addSpacing(12)
+
+        # Bounce button
+        self.btn_bounce = QPushButton("🏀 Bounce")
+        self.btn_bounce.setCheckable(True)
+        self.btn_bounce.setEnabled(False)
+        self.btn_bounce.setStyleSheet(self._anim_btn_style("#e67e22"))
+        self.btn_bounce.clicked.connect(lambda: self._toggle_anim('bounce', self.btn_bounce))
+        anim_layout.addWidget(self.btn_bounce)
+
+        # Pulse button
+        self.btn_pulse = QPushButton("💗 Pulse")
+        self.btn_pulse.setCheckable(True)
+        self.btn_pulse.setEnabled(False)
+        self.btn_pulse.setStyleSheet(self._anim_btn_style("#e74c3c"))
+        self.btn_pulse.clicked.connect(lambda: self._toggle_anim('pulse', self.btn_pulse))
+        anim_layout.addWidget(self.btn_pulse)
+
+        # Spin button
+        self.btn_spin = QPushButton("🌀 Spin")
+        self.btn_spin.setCheckable(True)
+        self.btn_spin.setEnabled(False)
+        self.btn_spin.setStyleSheet(self._anim_btn_style("#8e44ad"))
+        self.btn_spin.clicked.connect(lambda: self._toggle_anim('spin', self.btn_spin))
+        anim_layout.addWidget(self.btn_spin)
+
+        # Stop button
+        self.btn_stop_anim = QPushButton("⏹ Stop")
+        self.btn_stop_anim.setEnabled(False)
+        self.btn_stop_anim.setStyleSheet("""
+            QPushButton {
+                background: #ecf0f1;
+                border: 1px solid #bdc3c7;
+                border-radius: 4px;
+                padding: 4px 12px;
+                color: #2c3e50;
+                font-weight: bold;
+            }
+            QPushButton:hover { background: #d5dbdb; }
+            QPushButton:disabled { color: #aaa; }
+        """)
+        self.btn_stop_anim.clicked.connect(self._stop_anim)
+        anim_layout.addWidget(self.btn_stop_anim)
+
+        anim_layout.addStretch()
+        self.anim_group.setLayout(anim_layout)
+
+        # ==================================
         # CANVAS — scroll area
         # ==================================
 
@@ -143,7 +220,88 @@ class PaintTab(QWidget):
         main_layout.addLayout(row1)
         main_layout.addLayout(row2)
         main_layout.addWidget(shape_group)
+        main_layout.addWidget(self.anim_group)
         main_layout.addWidget(self.scroll_area)
+
+    # ==================================================
+    # ANIMATION STYLE HELPER
+    # ==================================================
+
+    def _anim_btn_style(self, color: str) -> str:
+        return f"""
+            QPushButton {{
+                background: white;
+                border: 2px solid {color};
+                border-radius: 6px;
+                padding: 4px 14px;
+                color: {color};
+                font-weight: bold;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background: {color};
+                color: white;
+            }}
+            QPushButton:checked {{
+                background: {color};
+                color: white;
+            }}
+            QPushButton:disabled {{
+                border-color: #ccc;
+                color: #ccc;
+            }}
+        """
+
+    # ==================================================
+    # ANIMATION CONTROL
+    # ==================================================
+
+    def on_selection_changed(self, has_selection: bool):
+        """Called by Canvas when selection is created/cleared."""
+        self.btn_bounce.setEnabled(has_selection)
+        self.btn_pulse.setEnabled(has_selection)
+        self.btn_spin.setEnabled(has_selection)
+        if has_selection:
+            self.anim_status.setText("Area terpilih! Pilih efek animasi:")
+            self.anim_status.setStyleSheet("color: #0078d7; font-weight: bold;")
+        else:
+            self._stop_anim()
+            self.anim_status.setText("Pilih area dengan Select, lalu pilih animasi:")
+            self.anim_status.setStyleSheet("color: #555;")
+
+    def _toggle_anim(self, mode: str, btn: QPushButton):
+        """Toggle animation. If same mode pressed while running, stop."""
+        anim_btns = [self.btn_bounce, self.btn_pulse, self.btn_spin]
+
+        # Uncheck semua kecuali yang diklik
+        for b in anim_btns:
+            if b is not btn:
+                b.setChecked(False)
+
+        if btn.isChecked():
+            # Mulai animasi
+            self.canvas.start_animation(mode)
+            self.btn_stop_anim.setEnabled(True)
+            self.anim_status.setText(f"▶ Animasi '{mode}' berjalan...")
+            self.anim_status.setStyleSheet("color: #27ae60; font-weight: bold;")
+        else:
+            # Tombol yang sama ditekan lagi → stop
+            self._stop_anim()
+
+    def _stop_anim(self):
+        self.canvas.stop_animation()
+        self.btn_bounce.setChecked(False)
+        self.btn_pulse.setChecked(False)
+        self.btn_spin.setChecked(False)
+        self.btn_stop_anim.setEnabled(False)
+
+        # Kembalikan status label jika masih ada selection
+        if not self.canvas._select_rect.isNull():
+            self.anim_status.setText("Area terpilih! Pilih efek animasi:")
+            self.anim_status.setStyleSheet("color: #0078d7; font-weight: bold;")
+        else:
+            self.anim_status.setText("Pilih area dengan Select, lalu pilih animasi:")
+            self.anim_status.setStyleSheet("color: #555;")
 
     # ==================================================
     # Canvas mengikuti ukuran window saat pertama tampil
@@ -160,7 +318,6 @@ class PaintTab(QWidget):
         h = max(self.scroll_area.viewport().height(), 300)
         self.canvas.resize_canvas(w, h)
 
-
     # ==================================================
     # SHORTCUTS
     # ==================================================
@@ -173,7 +330,6 @@ class PaintTab(QWidget):
             ("Ctrl+S",       self.save_image),
             ("Ctrl+O",       self.open_image),
             ("Ctrl+N",       self.new_canvas),
-            # Tools
             ("P",  lambda: self.set_tool(Tool.PENCIL)),
             ("B",  lambda: self.set_tool(Tool.BRUSH)),
             ("E",  lambda: self.set_tool(Tool.ERASER)),
@@ -183,14 +339,21 @@ class PaintTab(QWidget):
             ("R",  lambda: self.set_tool(Tool.RECTANGLE)),
             ("C",  lambda: self.set_tool(Tool.CIRCLE)),
             ("S",  lambda: self.set_tool(Tool.STAR)),
-            # Ukuran brush
             ("]",  self._increase_size),
             ("[",  self._decrease_size),
+            # Escape → stop animation & clear selection
+            ("Escape", self._on_escape),
         ]
 
         for key, slot in shortcuts:
             sc = QShortcut(QKeySequence(key), self)
             sc.activated.connect(slot)
+
+    def _on_escape(self):
+        self._stop_anim()
+        self.canvas._select_rect.setRect(0, 0, 0, 0)
+        self.on_selection_changed(False)
+        self.canvas.update()
 
     def _increase_size(self):
         self.size_box.setValue(min(self.size_box.value() + 1, 50))
