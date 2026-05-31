@@ -540,7 +540,9 @@ class Canvas(QWidget):
                     self._select_start, event.pos()
                 ).normalized()
                 # Notify PaintTab to show animation buttons
-                self._notify_selection_changed()
+                self._notify_selection_changed(
+    not self._select_rect.isNull()
+)
             self.update()
             return
 
